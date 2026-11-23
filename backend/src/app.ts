@@ -2,6 +2,8 @@ import express from 'express';
 
 export const app = express();
 
+app.disable('x-powered-by');
+
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
