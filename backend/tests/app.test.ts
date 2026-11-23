@@ -9,4 +9,9 @@ describe('GET /api/health', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: 'ok' });
   });
+  it('no expone la cabecera X-Powered-By', async () => {
+    const response = await request(app).get('/api/health');
+
+    expect(response.headers['x-powered-by']).toBeUndefined();
+  });
 });
