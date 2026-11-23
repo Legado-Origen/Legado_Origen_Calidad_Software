@@ -1,49 +1,57 @@
-name: CI Pipeline - Calidad de Software 
-on: 
-  push: 
-    branches: [ dev, main ] 
-  pull_request: 
-    branches: [ dev, main ]
-    
-jobs: 
-  lint-and-security: 
-    name: Análisis Estático y Auditoría 
-    runs-on: ubuntu-latest 
-    steps: 
-      - name: Checkout del código 
-        uses: actions/checkout@v4
-        
-      - name: Configurar Node.js 
-        uses: actions/setup-node@v4 
-        with: 
-          node-version: 20
-          cache: 'npm' 
-        
-      - name: Instalar dependencias 
-        run: npm ci 
-        
-      - name: Ejecutar ESLint 
-        run: npm run lint 
-          
-      - name: Auditoría de seguridad de dependencias 
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend - análisis estático, pruebas y SonarQube
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Auditoría de dependencias (npm audit)
         run: npm audit --audit-level=high
-        continue-on-error: true
-          
-  test-and-coverage: 
-    name: Pruebas Automatizadas y Cobertura 
-    runs-on: ubuntu-latest 
-    steps: 
-      - name: Checkout del código 
-        uses: actions/checkout@v4 
-      
-      - name: Configurar Node.js 
-        uses: actions/setup-node@v4 
-        with: 
-          node-version: 20 
-          cache: 'npm' 
-      
-      - name: Instalar dependencias 
-        run: npm ci 
-        
-      - name: Ejecutar pruebas con reporte de cobertura 
+
+      - name: Verificación de tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Análisis estático (ESLint)
+        run: npm run lint
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Pruebas y cobertura (Vitest)
         run: npm run test:coverage
+
+      - name: Autenticación con SonarQube Cloud (sin secretos)
+        uses: SonarSource/sonarqube-auth-action@v1
+
+      - name: Análisis de SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@v8
