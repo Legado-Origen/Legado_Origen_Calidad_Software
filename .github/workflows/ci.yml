@@ -1,49 +1,124 @@
-name: CI Pipeline - Calidad de Software 
-on: 
-  push: 
-    branches: [ dev, main ] 
-  pull_request: 
-    branches: [ dev, main ]
-    
-jobs: 
-  lint-and-security: 
-    name: Análisis Estático y Auditoría 
-    runs-on: ubuntu-latest 
-    steps: 
-      - name: Checkout del código 
-        uses: actions/checkout@v4
-        
-      - name: Configurar Node.js 
-        uses: actions/setup-node@v4 
-        with: 
-          node-version: 20
-          cache: 'npm' 
-        
-      - name: Instalar dependencias 
-        run: npm ci 
-        
-      - name: Ejecutar ESLint 
-        run: npm run lint 
-          
-      - name: Auditoría de seguridad de dependencias 
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend - análisis estático y pruebas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v6
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Auditoría de dependencias (npm audit)
         run: npm audit --audit-level=high
-        continue-on-error: true
-          
-  test-and-coverage: 
-    name: Pruebas Automatizadas y Cobertura 
-    runs-on: ubuntu-latest 
-    steps: 
-      - name: Checkout del código 
-        uses: actions/checkout@v4 
-      
-      - name: Configurar Node.js 
-        uses: actions/setup-node@v4 
-        with: 
-          node-version: 20 
-          cache: 'npm' 
-      
-      - name: Instalar dependencias 
-        run: npm ci 
-        
-      - name: Ejecutar pruebas con reporte de cobertura 
+
+      - name: Verificación de tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Análisis estático (ESLint)
+        run: npm run lint
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Pruebas y cobertura (Vitest)
         run: npm run test:coverage
+
+      - name: Publicar reporte de cobertura
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend/coverage/lcov.info
+
+  frontend:
+    name: Frontend - análisis estático y pruebas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v6
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Auditoría de dependencias (npm audit)
+        run: npm audit --audit-level=high
+
+      - name: Verificación de tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Análisis estático (ESLint)
+        run: npm run lint
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Pruebas y cobertura (Vitest)
+        run: npm run test:coverage
+
+      - name: Publicar reporte de cobertura
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+
+  sonarqube:
+    name: SonarQube Cloud
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Descargar cobertura del backend
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-coverage
+          path: backend/coverage
+
+      - name: Descargar cobertura del frontend
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
+      - name: Autenticación con SonarQube Cloud (sin secretos)
+        uses: SonarSource/sonarqube-auth-action@a0aa643acde4162396015b4f12536c1b9c4aab82 # v1.1.0
+
+      - name: Análisis de SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
