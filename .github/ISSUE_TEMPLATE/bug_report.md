@@ -13,7 +13,7 @@ labels: ["bug"]
 
 **Requisito Afectado:** [RF-XXX / RNF-XXX] 
 
-**Entorno / Navegador:** [Node.js v20 / PostgreSQL / Chromium / Firefox / WebKit]
+**Entorno / Navegador:** [Node.js v22 / PostgreSQL / Chromium / Firefox / WebKit]
 ### Comportamiento observado
 <!-- Explicación del problema -->
 
