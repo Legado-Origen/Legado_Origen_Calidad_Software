@@ -14,6 +14,17 @@ export interface AppConfig {
   reservationMinutes: number;
 }
 
+export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
+  if (env.COMMISSION_RATE === undefined || env.COMMISSION_RATE.trim() === '') {
+    return 0.1;
+  }
+  const parsed = Number(env.COMMISSION_RATE);
+  if (!Number.isFinite(parsed)) {
+    throw new Error('La variable de entorno COMMISSION_RATE debe ser un número entre 0 y 1');
+  }
+  return Math.min(1, Math.max(0, parsed));
+}
+
 function parsePositiveInteger(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value === '') {
     return fallback;

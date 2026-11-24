@@ -5,6 +5,8 @@ import { errorHandler, notFound } from './middleware/error-handler.js';
 import { createCartRouter } from './modules/carts/cart-routes.js';
 import { createItemRepository } from './modules/carts/item-repository.js';
 import { createReservationService } from './modules/carts/reservation-service.js';
+import { createCheckoutRepository } from './modules/checkout/checkout-repository.js';
+import { createCheckoutRouter } from './modules/checkout/checkout-routes.js';
 import { createAuthRouter } from './modules/auth/auth-routes.js';
 import { createAuthService } from './modules/auth/auth-service.js';
 import { createBuyerRepository } from './modules/auth/buyer-repository.js';
@@ -33,6 +35,8 @@ export function createApp({ clock = systemClock }: AppDeps = {}) {
   app.use('/api/auth', createAuthRouter(createAuthService(createBuyerRepository(pool))));
   app.use('/api/items', createItemRouter(reservationService));
   app.use('/api/carts', createCartRouter(reservationService));
+  app.use('/api/checkout', createCheckoutRouter(createCheckoutRepository(pool)));
+  app.use('/api/checkouts', createCheckoutRouter(createCheckoutRepository(pool)));
 
   app.use(notFound);
   app.use(errorHandler);
