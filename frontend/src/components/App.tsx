@@ -3,6 +3,8 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { LoginScreen } from './LoginScreen';
 import { CatalogScreen } from './CatalogScreen';
 import { CartScreen } from './CartScreen';
+import { CheckoutScreen } from './CheckoutScreen';
+import { createCheckoutApi, type CheckoutApi } from '../services/checkout-api';
 import {
   createReservationApi,
   type Buyer,
@@ -12,9 +14,16 @@ import {
 } from '../services/reservationApi';
 
 const defaultApi = createReservationApi();
-type View = 'catalog' | 'cart';
+const defaultCheckoutApi = createCheckoutApi();
+type View = 'catalog' | 'cart' | 'checkout';
 
-export function App({ api = defaultApi }: { api?: ReservationApi }): React.ReactElement {
+export function App({
+  api = defaultApi,
+  checkoutApi = defaultCheckoutApi,
+}: {
+  api?: ReservationApi;
+  checkoutApi?: CheckoutApi;
+}): React.ReactElement {
   const [buyer, setBuyer] = useState<Buyer | null>(null);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -100,6 +109,26 @@ export function App({ api = defaultApi }: { api?: ReservationApi }): React.React
             void logout();
           }}
           onCancel={(itemId) => cancelReservation(buyer.id, itemId)}
+          onCheckout={() => setView('checkout')}
+        />
+      ) : view === 'checkout' ? (
+        <CheckoutScreen
+          api={checkoutApi}
+          buyer={buyer}
+          reservations={reservations}
+          onBack={() => setView('cart')}
+          onCompleted={(confirmation) => {
+            if (confirmation.approved) {
+              setReservations([]);
+              setItems((current) =>
+                current.map((item) =>
+                  reservations.some((reservation) => reservation.itemId === item.id)
+                    ? { ...item, status: 'sold', reservedUntil: null }
+                    : item,
+                ),
+              );
+            }
+          }}
         />
       ) : (
         <CatalogScreen

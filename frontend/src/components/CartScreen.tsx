@@ -8,6 +8,7 @@ interface Props {
   onBack: () => void;
   onLogout: () => void;
   onCancel: (itemId: number) => Promise<void>;
+  onCheckout: () => void;
 }
 
 export function CartScreen({
@@ -15,6 +16,7 @@ export function CartScreen({
   onBack,
   onLogout,
   onCancel,
+  onCheckout,
 }: Props): React.ReactElement {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -42,6 +44,7 @@ export function CartScreen({
       setIndex((current) => (current + 1) % reservations.length);
     else if (input === 'x') void cancelSelected();
     else if (input === 'b') onBack();
+    else if (input === 'p' && reservations.length > 0) onCheckout();
     else if (input === 'l') onLogout();
   });
 
@@ -65,7 +68,9 @@ export function CartScreen({
       )}
       {error && <Text color="red">{error}</Text>}
       {busy && <Text color="yellow">Cancelando reserva…</Text>}
-      <Text dimColor>↑/↓ elegir · x cancelar reserva · b volver al catálogo · l cerrar sesión</Text>
+      <Text dimColor>
+        ↑/↓ elegir · x cancelar reserva · p pagar carrito · b volver al catálogo · l cerrar sesión
+      </Text>
     </Box>
   );
 }
