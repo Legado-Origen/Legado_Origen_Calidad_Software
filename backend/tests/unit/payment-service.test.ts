@@ -12,7 +12,7 @@ describe('validatePayment', () => {
   it.each([undefined, 123, '1234'])('rejects a malformed card number: %s', (cardNumber) => {
     expect(validatePayment({ ...validVisa, cardNumber })).toMatchObject({
       valid: false,
-      reason: 'Número de tarjeta inválido',
+      reason: 'El número de tarjeta debe tener 16 dígitos',
     });
   });
 
@@ -26,7 +26,7 @@ describe('validatePayment', () => {
   it.each([undefined, '1299', '12-99'])('rejects malformed expiration dates: %s', (date) => {
     expect(validatePayment({ ...validVisa, expirationDate: date })).toMatchObject({
       valid: false,
-      reason: 'Fecha de vencimiento inválida',
+      reason: 'La tarjeta está vencida',
     });
   });
 

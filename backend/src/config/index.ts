@@ -16,13 +16,6 @@ export interface AppConfig {
 }
 
 export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
-  if (!env.COMMISSION_RATE || env.COMMISSION_RATE.trim() === '') return 0.1;
-  const parsed = Number(env.COMMISSION_RATE);
-  if (!Number.isFinite(parsed)) throw new Error('COMMISSION_RATE debe ser un número');
-  return Math.min(1, Math.max(0, parsed));
-}
-
-export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
   if (env.COMMISSION_RATE === undefined || env.COMMISSION_RATE.trim() === '') {
     return 0.1;
   }
