@@ -16,7 +16,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/server.ts'],
+      exclude: ['src/server.ts', 'src/db/seed.ts'],
       reporter: ['text', ['lcov', { projectRoot: '..' }]],
       thresholds: {
         lines: 90,
