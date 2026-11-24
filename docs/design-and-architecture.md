@@ -22,6 +22,21 @@ flowchart LR
 
 Dentro de la API, cada solicitud recorre las capas ruta, servicio y repositorio. La ruta valida la forma de la entrada, el servicio aplica las reglas de negocio y el repositorio es el único componente que ejecuta SQL. Los errores se propagan al middleware centralizado, que responde con un mensaje genérico (RNF-005).
 
+### Ampliación para HU-09 y HU-10
+
+El checkout agrega el servicio de pago y el cálculo de comisiones al flujo
+existente. La ruta coordina el preview y la finalización, mientras el
+repositorio checkout ejecuta las operaciones SQL dentro de una transacción.
+
+```mermaid
+flowchart LR
+    CLI["Cliente"] -->|HTTP / JSON| Router["Checkout Router"]
+    Router --> Repository["Checkout Repository"]
+    Repository --> Payment["Payment Service"]
+    Repository --> DB[("PostgreSQL")]
+    Repository -->|COMMIT / ROLLBACK| DB
+```
+
 ## 2. Datos
 
 ### Diagrama entidad-relación (HU-08)
@@ -102,6 +117,34 @@ CREATE TABLE IF NOT EXISTS items (
 );
 ```
 
+### Datos de checkout (HU-09 y HU-10)
+
+La pieza existente se amplía con `stock` y `seller_id`. Además se crean las
+tablas `orders`, `order_items`, `payment_transactions`,
+`platform_commissions`, `checkout_sessions` y `email_notifications`.
+
+**`orders`** conserva el código único, estado, subtotal, impuesto, total,
+moneda y datos de entrega. El código tiene el formato `LO-XXXXXXXX`.
+
+**`order_items`** conserva el precio, cantidad y vendedor al momento de la
+compra. También guarda `seller_subtotal`, `commission_rate`,
+`commission_amount` y `seller_net`.
+
+**`platform_commissions`** registra la comisión agregada por vendedor y orden.
+
+**`checkout_sessions`** relaciona `idempotency_key` con una orden y evita
+procesar dos veces el mismo intento de compra.
+
+**`payment_transactions`** guarda BIN, últimos cuatro dígitos, marca, monto,
+moneda y resultado. No almacena el número completo ni el CVC.
+
+**`email_notifications`** conserva la confirmación creada para el correo del
+comprador.
+
+Los montos se recalculan con los precios guardados en PostgreSQL. El impuesto
+es 13%. `COMMISSION_RATE` es configurable como decimal y por defecto vale
+`0.10`; los valores se limitan al rango 0–1.
+
 ## 3. Interfaces
 
 Todas las respuestas de error tienen la forma `{ "message": string }` y se generan en el middleware centralizado (RNF-005).
@@ -137,6 +180,70 @@ Ejemplo de cuerpo:
 El mensaje de `409` es el mismo en todos los casos: no revela si la pieza está reservada o vendida, ni quién la reservó.
 
 **Alcance:** mientras HU-01 no esté implementada, el comprador se identifica por el `buyerId` de la ruta, sin autenticación. RF-003 queda fuera del alcance de esta interfaz (ver el issue de HU-08).
+
+### `POST /api/checkout/preview` (HU-09)
+
+Calcula el resumen de la compra sin crear una orden ni modificar el stock.
+
+**Cuerpo**
+
+```json
+{
+  "buyerId": 3,
+  "items": [{ "itemId": 12, "quantity": 1 }],
+  "shipping": {
+    "name": "Comprador",
+    "email": "comprador@test.cr",
+    "phone": "88888888",
+    "provincia": "San José",
+    "canton": "San José",
+    "distrito": "Carmen",
+    "direccion": "Calle Central",
+    "currency": "CRC"
+  }
+}
+```
+
+Responde subtotal, impuesto 13%, total, moneda e items. Devuelve `400` para
+datos inválidos, `404` si una pieza no existe y `409` si no tiene stock.
+
+### `POST /api/checkout/complete` (HU-09 y HU-10)
+
+Completa el checkout y requiere `Idempotency-Key`. Puede identificar al
+comprador mediante `buyerId` en el cuerpo o en la ruta
+`/api/checkouts/{buyerId}/complete`.
+
+```json
+{
+  "buyerId": 3,
+  "items": [{ "itemId": 12, "quantity": 1 }],
+  "shipping": {
+    "name": "Comprador",
+    "email": "comprador@test.cr",
+    "phone": "88888888",
+    "provincia": "San José",
+    "canton": "San José",
+    "distrito": "Carmen",
+    "direccion": "Calle Central"
+  },
+  "payment": {
+    "cardNumber": "4916911234567890",
+    "expirationDate": "12/30",
+    "cvc": "123",
+    "currency": "CRC",
+    "amount": 565
+  }
+}
+```
+
+| Código | Situación |
+|---|---|
+| `201 Created` | Pago aprobado y orden creada |
+| `200 OK` | La llave de idempotencia ya creó la orden |
+| `400 Bad Request` | Datos, pago o monto inválido |
+| `404 Not Found` | Comprador o pieza inexistente |
+| `409 Conflict` | Producto no disponible o sin stock |
+| `500 Internal Server Error` | Error inesperado |
 
 ## 4. Componentes
 
@@ -207,6 +314,47 @@ sequenceDiagram
     end
 ```
 
+### Componentes de HU-09 y HU-10
+
+| Componente | Archivo | Responsabilidad |
+|---|---|---|
+| Rutas checkout | `backend/src/modules/checkout/checkout-routes.ts` | Expone preview y complete |
+| Servicio checkout | `backend/src/modules/checkout/checkout-service.ts` | Validación, redondeo, totales y códigos |
+| Servicio de pago | `backend/src/modules/checkout/payment-service.ts` | Valida tarjeta, BIN, vencimiento, CVC y moneda |
+| Repositorio checkout | `backend/src/modules/checkout/checkout-repository.ts` | Ejecuta el flujo transaccional |
+| Esquema | `backend/src/db/schema.sql` | Crea órdenes, pagos, comisiones e idempotencia |
+
+### Flujo atómico (RNF-006)
+
+El checkout usa `BEGIN`, valida stock y pago, crea la orden con código
+`LO-XXXXXXXX`, inserta items, descuenta stock, registra comisiones y pago, y
+guarda la llave de idempotencia. Cualquier error ejecuta `ROLLBACK`.
+
+```text
+BEGIN
+  buscar checkout_sessions por Idempotency-Key
+  bloquear y consultar items
+  validar stock y monto
+  crear orden
+  crear order_items
+  descontar stock
+  registrar platform_commissions
+  registrar payment_transactions
+  guardar checkout_sessions
+COMMIT
+```
+
+### Cálculo de comisión (HU-10)
+
+```text
+subtotalVendedor = precioUnitario × cantidad
+comisión = redondear(subtotalVendedor × COMMISSION_RATE)
+netoVendedor = redondear(subtotalVendedor − comisión)
+```
+
+Si la pieza no tiene `seller_id`, la comisión es cero. Cuando
+`COMMISSION_RATE=0.10`, una venta de 500 genera 50 de comisión y 450 netos.
+
 ## 5. Despliegue
 
 | Ambiente | Componentes |
@@ -214,6 +362,20 @@ sequenceDiagram
 | Desarrollo local | Node.js 22 y PostgreSQL 16, configurados mediante variables de entorno (`.env`, excluido del repositorio) |
 | Integración continua | GitHub Actions con PostgreSQL 16 como contenedor de servicio; la base de datos de prueba se recrea en cada ejecución (Fase 2, Pruebas, Actividad 1) |
 | Producción | Por definir |
+
+Para HU-09 y HU-10 se usa `COMMISSION_RATE=0.10` como valor predeterminado
+cuando no está configurado.
+
+Las pruebas unitarias e integradas se encuentran en `backend/tests/` y se
+ejecutan mediante:
+
+```bash
+cd backend
+npm test
+npm run test:coverage
+npm run typecheck
+npm run lint
+```
 
 ## Trazabilidad
 
@@ -225,3 +387,7 @@ sequenceDiagram
 | 4. Concurrencia | `UPDATE` atómico (RNF-007) |
 | 5. Pieza no disponible | `status = 'available'` en el `UPDATE` y respuesta `409` |
 | 6. Misma reserva sin extensión | El `UPDATE` no modifica una reserva vigente; respuesta `200` |
+| RF-012 / HU-09 — Checkout en 4 pasos | Preview, datos, pago y confirmación |
+| RF-014 — Confirmación de orden | Código único `LO-XXXXXXXX` y registro de notificación |
+| RF-015 / HU-10 — Comisión automática | Cálculo por vendedor externo y tabla `platform_commissions` |
+| RNF-006 — Atomicidad | Transacción `BEGIN` / `COMMIT` / `ROLLBACK` |
