@@ -33,7 +33,10 @@ export function LoginScreen({ api, onLogin }: Props): React.ReactElement {
     <Box flexDirection="column">
       <Text bold>Inicio de sesión</Text>
       <Text dimColor>Escribe tu nombre de usuario demo (Ana, Luis o María).</Text>
-      <Box><Text>Nombre: </Text><TextInput value={name} onChange={setName} onSubmit={submit} /></Box>
+      <Box>
+        <Text>Nombre: </Text>
+        <TextInput value={name} onChange={setName} onSubmit={submit} />
+      </Box>
       {busy && <Text color="yellow">Cargando catálogo y carrito…</Text>}
       {error && <Text color="red">{error}</Text>}
     </Box>

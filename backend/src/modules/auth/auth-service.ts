@@ -23,7 +23,11 @@ export function createAuthService(repository: BuyerRepository) {
     },
 
     async logout(buyerId: unknown, sessionToken: unknown): Promise<void> {
-      if (!Number.isSafeInteger(buyerId) || (buyerId as number) < 1 || typeof sessionToken !== 'string') {
+      if (
+        !Number.isSafeInteger(buyerId) ||
+        (buyerId as number) < 1 ||
+        typeof sessionToken !== 'string'
+      ) {
         throw new HttpError(400, 'Solicitud inválida');
       }
       if (activeSessions.get(buyerId as number) !== sessionToken) {

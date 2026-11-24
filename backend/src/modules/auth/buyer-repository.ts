@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 
-export interface Buyer { id: number; name: string }
+export interface Buyer {
+  id: number;
+  name: string;
+}
 
 export interface BuyerRepository {
   findByName(name: string): Promise<Buyer[]>;

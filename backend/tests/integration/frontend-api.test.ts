@@ -1,7 +1,13 @@
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
-import { closePool, createBuyer, createItem, findReservation, resetDatabase } from '../helpers/db.js';
+import {
+  closePool,
+  createBuyer,
+  createItem,
+  findReservation,
+  resetDatabase,
+} from '../helpers/db.js';
 import { FakeClock } from '../helpers/fake-clock.js';
 
 const START = new Date('2026-11-24T16:00:00.000Z');
@@ -58,10 +64,14 @@ describe('API para el frontend', () => {
     expect(staleLogout.status).toBe(409);
     expect((await login()).status).toBe(409);
 
-    expect((await request(app).post('/api/auth/logout').send({
-      buyerId,
-      sessionToken: second.body.sessionToken,
-    })).status).toBe(204);
+    expect(
+      (
+        await request(app).post('/api/auth/logout').send({
+          buyerId,
+          sessionToken: second.body.sessionToken,
+        })
+      ).status,
+    ).toBe(204);
     expect((await login()).status).toBe(200);
   });
 
@@ -73,10 +83,16 @@ describe('API para el frontend', () => {
 
     const response = await request(app).get('/api/items');
     expect(response.status).toBe(200);
-    expect(response.body).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: reservedItemId, status: 'reserved', title: 'Reloj de bolsillo' }),
-      expect.objectContaining({ id: availableItemId, status: 'available' }),
-    ]));
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: reservedItemId,
+          status: 'reserved',
+          title: 'Reloj de bolsillo',
+        }),
+        expect.objectContaining({ id: availableItemId, status: 'available' }),
+      ]),
+    );
     expect(response.body[0]).not.toHaveProperty('reserved_by');
     expect(response.body[0]).not.toHaveProperty('reservedBy');
   });
@@ -94,7 +110,10 @@ describe('API para el frontend', () => {
     const response = await request(app).get(`/api/carts/${buyerId}`);
     expect(response.status).toBe(200);
     expect(response.body).toHaveLength(2);
-    expect(response.body.map((item: { itemId: number }) => item.itemId)).toEqual([firstItemId, secondItemId]);
+    expect(response.body.map((item: { itemId: number }) => item.itemId)).toEqual([
+      firstItemId,
+      secondItemId,
+    ]);
     expect(response.body[0]).toHaveProperty('title');
     expect(response.body[0]).not.toHaveProperty('reservedBy');
 

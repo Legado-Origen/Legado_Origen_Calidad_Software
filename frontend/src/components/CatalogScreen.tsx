@@ -31,7 +31,15 @@ export function toOptions(items: CatalogItem[]): MenuOption[] {
   }));
 }
 
-export function CatalogScreen({ buyerName, items, ownReservationIds, onReserve, onOpenCart, onLogout, cartSize }: Props): React.ReactElement {
+export function CatalogScreen({
+  buyerName,
+  items,
+  ownReservationIds,
+  onReserve,
+  onOpenCart,
+  onLogout,
+  cartSize,
+}: Props): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useInput((input) => {
@@ -64,12 +72,16 @@ export function CatalogScreen({ buyerName, items, ownReservationIds, onReserve, 
     <Box flexDirection="column">
       <Text color="cyan">Bienvenido, {buyerName}</Text>
       <Text bold>Artículos disponibles</Text>
-      {items.length === 0
-        ? <Text>No hay artículos cargados.</Text>
-        : <Menu options={toOptions(items)} onSelect={select} isActive={!busy} />}
+      {items.length === 0 ? (
+        <Text>No hay artículos cargados.</Text>
+      ) : (
+        <Menu options={toOptions(items)} onSelect={select} isActive={!busy} />
+      )}
       {error && <Text color="red">{error}</Text>}
       {busy && <Text color="yellow">Reservando…</Text>}
-      <Text dimColor>↑/↓ elegir · Enter reservar · c ver carrito ({cartSize}) · l cerrar sesión</Text>
+      <Text dimColor>
+        ↑/↓ elegir · Enter reservar · c ver carrito ({cartSize}) · l cerrar sesión
+      </Text>
     </Box>
   );
 }

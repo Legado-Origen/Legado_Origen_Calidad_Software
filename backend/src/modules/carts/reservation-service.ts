@@ -47,7 +47,11 @@ export function createReservationService({
     async listItems(): Promise<CatalogItem[]> {
       const rows = await repository.listItems(clock.now());
       return rows.map(({ id, title, price, status, reserved_until }) => ({
-        id, title, price, status, reservedUntil: reserved_until,
+        id,
+        title,
+        price,
+        status,
+        reservedUntil: reserved_until,
       }));
     },
 
@@ -57,7 +61,11 @@ export function createReservationService({
       }
       const rows = await repository.listBuyerReservations(buyerId, clock.now());
       return rows.map(({ item_id, title, price, reserved_until }) => ({
-        itemId: item_id, buyerId, title, price, reservedUntil: reserved_until,
+        itemId: item_id,
+        buyerId,
+        title,
+        price,
+        reservedUntil: reserved_until,
       }));
     },
 

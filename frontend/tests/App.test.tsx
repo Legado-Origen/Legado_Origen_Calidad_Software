@@ -2,17 +2,47 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../src/components/App';
-import { ReservationApiError, type Buyer, type CatalogItem, type Reservation, type ReservationApi } from '../src/services/reservationApi';
+import {
+  ReservationApiError,
+  type Buyer,
+  type CatalogItem,
+  type Reservation,
+  type ReservationApi,
+} from '../src/services/reservationApi';
 
 const wait = (ms = 60) => new Promise((resolve) => setTimeout(resolve, ms));
 const buyer: Buyer = { id: 4, name: 'Ana', sessionToken: 'session-ana' };
 const catalog: CatalogItem[] = [
-  { id: 11, title: 'Reloj de bolsillo', price: '185000.00', status: 'available', reservedUntil: null },
-  { id: 12, title: 'Gramófono antiguo', price: '240000.00', status: 'reserved', reservedUntil: '2026-11-25T12:00:00Z' },
+  {
+    id: 11,
+    title: 'Reloj de bolsillo',
+    price: '185000.00',
+    status: 'available',
+    reservedUntil: null,
+  },
+  {
+    id: 12,
+    title: 'Gramófono antiguo',
+    price: '240000.00',
+    status: 'reserved',
+    reservedUntil: '2026-11-25T12:00:00Z',
+  },
 ];
 const savedReservations: Reservation[] = [
-  { itemId: 22, buyerId: buyer.id, title: 'Carreta de Sarchí', price: '320000.00', reservedUntil: '2026-11-25T12:00:00Z' },
-  { itemId: 23, buyerId: buyer.id, title: 'Máquina de coser', price: '240000.00', reservedUntil: '2026-11-25T12:30:00Z' },
+  {
+    itemId: 22,
+    buyerId: buyer.id,
+    title: 'Carreta de Sarchí',
+    price: '320000.00',
+    reservedUntil: '2026-11-25T12:00:00Z',
+  },
+  {
+    itemId: 23,
+    buyerId: buyer.id,
+    title: 'Máquina de coser',
+    price: '240000.00',
+    reservedUntil: '2026-11-25T12:30:00Z',
+  },
 ];
 
 function createApi(overrides: Partial<ReservationApi> = {}): ReservationApi {
@@ -21,13 +51,18 @@ function createApi(overrides: Partial<ReservationApi> = {}): ReservationApi {
     logout: vi.fn().mockResolvedValue(undefined),
     listItems: vi.fn().mockResolvedValue(catalog),
     getCart: vi.fn().mockResolvedValue([]),
-    reserveItem: vi.fn().mockResolvedValue({ ...savedReservations[0], itemId: 11, title: catalog[0].title }),
+    reserveItem: vi
+      .fn()
+      .mockResolvedValue({ ...savedReservations[0], itemId: 11, title: catalog[0].title }),
     cancelReservation: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
-async function typeAndSubmit(stdin: { write: (input: string) => void }, value: string): Promise<void> {
+async function typeAndSubmit(
+  stdin: { write: (input: string) => void },
+  value: string,
+): Promise<void> {
   await wait();
   for (const character of value) {
     stdin.write(character);
@@ -102,7 +137,11 @@ describe('frontend de reservas', () => {
   });
 
   it('al seleccionar un artículo propio ya reservado vuelve al carrito', async () => {
-    const ownReservation = { ...savedReservations[0], itemId: catalog[1].id, title: catalog[1].title };
+    const ownReservation = {
+      ...savedReservations[0],
+      itemId: catalog[1].id,
+      title: catalog[1].title,
+    };
     const api = createApi({
       getCart: vi.fn().mockResolvedValue([ownReservation]),
     });
@@ -119,7 +158,12 @@ describe('frontend de reservas', () => {
   });
 
   it('cancela una reserva activa desde el carrito y actualiza la pieza', async () => {
-    const reservedItem = { ...catalog[0], id: savedReservations[0].itemId, title: savedReservations[0].title, status: 'reserved' as const };
+    const reservedItem = {
+      ...catalog[0],
+      id: savedReservations[0].itemId,
+      title: savedReservations[0].title,
+      status: 'reserved' as const,
+    };
     const api = createApi({
       listItems: vi.fn().mockResolvedValue([reservedItem, catalog[1]]),
       getCart: vi.fn().mockResolvedValue([savedReservations[0]]),
@@ -143,7 +187,9 @@ describe('frontend de reservas', () => {
   it('muestra errores al cancelar si la reserva ya venció', async () => {
     const api = createApi({
       getCart: vi.fn().mockResolvedValue([savedReservations[0]]),
-      cancelReservation: vi.fn().mockRejectedValue(new ReservationApiError(410, 'La reserva ya venció o no está activa')),
+      cancelReservation: vi
+        .fn()
+        .mockRejectedValue(new ReservationApiError(410, 'La reserva ya venció o no está activa')),
     });
     const app = render(<App api={api} />);
     await typeAndSubmit(app.stdin, 'Ana');
@@ -163,7 +209,11 @@ describe('frontend de reservas', () => {
   });
 
   it('permite volver a reservar y actualiza el estado del artículo en el catálogo', async () => {
-    const ownReservation = { ...savedReservations[0], itemId: catalog[0].id, title: catalog[0].title };
+    const ownReservation = {
+      ...savedReservations[0],
+      itemId: catalog[0].id,
+      title: catalog[0].title,
+    };
     const api = createApi({
       getCart: vi.fn().mockResolvedValue([ownReservation]),
     });
@@ -178,19 +228,27 @@ describe('frontend de reservas', () => {
   });
 
   it('muestra errores de login y de reserva', async () => {
-    const loginApi = createApi({ login: vi.fn().mockRejectedValue(new ReservationApiError(404, 'Usuario no encontrado')) });
+    const loginApi = createApi({
+      login: vi.fn().mockRejectedValue(new ReservationApiError(404, 'Usuario no encontrado')),
+    });
     const loginApp = render(<App api={loginApi} />);
     await typeAndSubmit(loginApp.stdin, 'Desconocido');
     expect(loginApp.lastFrame()).toContain('Usuario no encontrado');
 
-    const reserveApi = createApi({ reserveItem: vi.fn().mockRejectedValue(new ReservationApiError(409, 'La pieza no está disponible')) });
+    const reserveApi = createApi({
+      reserveItem: vi
+        .fn()
+        .mockRejectedValue(new ReservationApiError(409, 'La pieza no está disponible')),
+    });
     const reserveApp = render(<App api={reserveApi} />);
     await typeAndSubmit(reserveApp.stdin, 'Ana');
     appEnter(reserveApp.stdin);
     await wait();
     expect(reserveApp.lastFrame()).toContain('La pieza no está disponible');
 
-    const unexpectedLoginApi = createApi({ login: vi.fn().mockRejectedValue(new Error('internal detail')) });
+    const unexpectedLoginApi = createApi({
+      login: vi.fn().mockRejectedValue(new Error('internal detail')),
+    });
     const unexpectedLoginApp = render(<App api={unexpectedLoginApi} />);
     await typeAndSubmit(unexpectedLoginApp.stdin, 'Ana');
     expect(unexpectedLoginApp.lastFrame()).toContain('No se pudo iniciar sesión.');
