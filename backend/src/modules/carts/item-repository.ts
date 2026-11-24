@@ -13,6 +13,21 @@ export interface ItemRow {
   reserved_until: Date | null;
 }
 
+export interface CatalogItemRow {
+  id: number;
+  title: string;
+  price: string;
+  status: string;
+  reserved_until: Date | null;
+}
+
+export interface BuyerReservationRow {
+  item_id: number;
+  title: string;
+  price: string;
+  reserved_until: Date;
+}
+
 export interface ItemRepository {
   buyerExists(buyerId: number): Promise<boolean>;
   tryReserve(
@@ -22,6 +37,9 @@ export interface ItemRepository {
     minutes: number,
   ): Promise<ReservationRow | null>;
   findById(itemId: number): Promise<ItemRow | null>;
+  listItems(now: Date): Promise<CatalogItemRow[]>;
+  listBuyerReservations(buyerId: number, now: Date): Promise<BuyerReservationRow[]>;
+  releaseReservation(itemId: number, buyerId: number, now: Date): Promise<boolean>;
 }
 
 export function createItemRepository(pool: Pool): ItemRepository {
@@ -51,6 +69,45 @@ export function createItemRepository(pool: Pool): ItemRepository {
         [itemId],
       );
       return result.rows[0] ?? null;
+    },
+
+    async listItems(now) {
+      const result = await pool.query<CatalogItemRow>(
+        `SELECT id, title, price,
+                CASE WHEN status = 'available' AND reserved_until > $1 THEN 'reserved' ELSE status END AS status,
+                CASE WHEN reserved_until > $1 THEN reserved_until ELSE NULL END AS reserved_until
+         FROM items
+         ORDER BY id`,
+        [now],
+      );
+      return result.rows;
+    },
+
+    async listBuyerReservations(buyerId, now) {
+      const result = await pool.query<BuyerReservationRow>(
+        `SELECT id AS item_id, title, price, reserved_until
+         FROM items
+         WHERE reserved_by = $1
+           AND status = 'available'
+           AND reserved_until > $2
+         ORDER BY reserved_until, id`,
+        [buyerId, now],
+      );
+      return result.rows;
+    },
+
+    async releaseReservation(itemId, buyerId, now) {
+      const result = await pool.query(
+        `UPDATE items
+         SET reserved_by = NULL, reserved_until = NULL
+         WHERE id = $1
+           AND reserved_by = $2
+           AND status = 'available'
+           AND reserved_until > $3
+         RETURNING id`,
+        [itemId, buyerId, now],
+      );
+      return result.rowCount === 1;
     },
   };
 }

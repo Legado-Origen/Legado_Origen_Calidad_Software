@@ -13,6 +13,22 @@ export interface ReservationResult {
   reservation: Reservation;
 }
 
+export interface CatalogItem {
+  id: number;
+  title: string;
+  price: string;
+  status: string;
+  reservedUntil: Date | null;
+}
+
+export interface BuyerReservation {
+  itemId: number;
+  buyerId: number;
+  title: string;
+  price: string;
+  reservedUntil: Date;
+}
+
 interface ReservationServiceDeps {
   repository: ItemRepository;
   clock: Clock;
@@ -28,6 +44,37 @@ export function createReservationService({
   reservationMinutes,
 }: ReservationServiceDeps) {
   return {
+    async listItems(): Promise<CatalogItem[]> {
+      const rows = await repository.listItems(clock.now());
+      return rows.map(({ id, title, price, status, reserved_until }) => ({
+        id, title, price, status, reservedUntil: reserved_until,
+      }));
+    },
+
+    async listBuyerReservations(buyerId: number): Promise<BuyerReservation[]> {
+      if (!(await repository.buyerExists(buyerId))) {
+        throw new HttpError(404, NOT_FOUND);
+      }
+      const rows = await repository.listBuyerReservations(buyerId, clock.now());
+      return rows.map(({ item_id, title, price, reserved_until }) => ({
+        itemId: item_id, buyerId, title, price, reservedUntil: reserved_until,
+      }));
+    },
+
+    async releaseReservation(buyerId: number, itemId: number): Promise<void> {
+      if (!(await repository.buyerExists(buyerId))) {
+        throw new HttpError(404, NOT_FOUND);
+      }
+      if (await repository.releaseReservation(itemId, buyerId, clock.now())) return;
+
+      const item = await repository.findById(itemId);
+      if (!item) throw new HttpError(404, NOT_FOUND);
+      if (item.reserved_by !== buyerId) {
+        throw new HttpError(403, 'La reserva no pertenece a este comprador');
+      }
+      throw new HttpError(410, 'La reserva ya venció o no está activa');
+    },
+
     async reserveItem(buyerId: number, itemId: number): Promise<ReservationResult> {
       if (!(await repository.buyerExists(buyerId))) {
         throw new HttpError(404, NOT_FOUND);
