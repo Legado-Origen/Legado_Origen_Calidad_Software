@@ -1,0 +1,1 @@
+CREATE DATABASE legado_origen_test;
