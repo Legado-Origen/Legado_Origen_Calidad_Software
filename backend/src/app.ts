@@ -7,6 +7,10 @@ import { createItemRepository } from './modules/carts/item-repository.js';
 import { createReservationService } from './modules/carts/reservation-service.js';
 import { createCheckoutRepository } from './modules/checkout/checkout-repository.js';
 import { createCheckoutRouter } from './modules/checkout/checkout-routes.js';
+import { createAuthRouter } from './modules/auth/auth-routes.js';
+import { createAuthService } from './modules/auth/auth-service.js';
+import { createBuyerRepository } from './modules/auth/buyer-repository.js';
+import { createItemRouter } from './modules/items/item-routes.js';
 import { type Clock, systemClock } from './shared/clock.js';
 
 interface AppDeps {
@@ -28,6 +32,8 @@ export function createApp({ clock = systemClock }: AppDeps = {}) {
     clock,
     reservationMinutes: config.reservationMinutes,
   });
+  app.use('/api/auth', createAuthRouter(createAuthService(createBuyerRepository(pool))));
+  app.use('/api/items', createItemRouter(reservationService));
   app.use('/api/carts', createCartRouter(reservationService));
   app.use('/api/checkout', createCheckoutRouter(createCheckoutRepository(pool)));
   app.use('/api/checkouts', createCheckoutRouter(createCheckoutRepository(pool)));
