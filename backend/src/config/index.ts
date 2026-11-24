@@ -12,6 +12,14 @@ export interface AppConfig {
     password: string | undefined;
   };
   reservationMinutes: number;
+  commissionRate: number;
+}
+
+export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
+  if (!env.COMMISSION_RATE || env.COMMISSION_RATE.trim() === '') return 0.1;
+  const parsed = Number(env.COMMISSION_RATE);
+  if (!Number.isFinite(parsed)) throw new Error('COMMISSION_RATE debe ser un número');
+  return Math.min(1, Math.max(0, parsed));
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number, name: string): number {
@@ -40,6 +48,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       DEFAULT_RESERVATION_MINUTES,
       'RESERVATION_MINUTES',
     ),
+    commissionRate: loadCommissionRate(env),
   };
 }
 

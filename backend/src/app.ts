@@ -9,6 +9,7 @@ import { createAuthRouter } from './modules/auth/auth-routes.js';
 import { createAuthService } from './modules/auth/auth-service.js';
 import { createBuyerRepository } from './modules/auth/buyer-repository.js';
 import { createItemRouter } from './modules/items/item-routes.js';
+import { createCheckoutRouter } from './modules/checkout/checkout-routes.js';
 import { type Clock, systemClock } from './shared/clock.js';
 
 interface AppDeps {
@@ -33,6 +34,7 @@ export function createApp({ clock = systemClock }: AppDeps = {}) {
   app.use('/api/auth', createAuthRouter(createAuthService(createBuyerRepository(pool))));
   app.use('/api/items', createItemRouter(reservationService));
   app.use('/api/carts', createCartRouter(reservationService));
+  app.use('/api/checkout', createCheckoutRouter(pool, config.commissionRate));
 
   app.use(notFound);
   app.use(errorHandler);
