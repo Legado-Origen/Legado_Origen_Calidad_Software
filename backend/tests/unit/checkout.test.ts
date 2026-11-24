@@ -13,6 +13,16 @@ import {
 import { validatePayment } from '../../src/modules/checkout/payment-service.js';
 import { loadCommissionRate } from '../../src/config/index.js';
 
+function payment(overrides: Record<string, unknown> = {}) {
+  return {
+    cardNumber: '4916911234567890',
+    expirationDate: '12/30',
+    cvc: '123',
+    currency: 'CRC',
+    ...overrides,
+  };
+}
+
 describe('checkout service', () => {
   it('rechaza un carrito vacío', () => {
     expect(validateCheckoutItems([])).toBe(false);
@@ -106,76 +116,29 @@ describe('checkout service', () => {
 
 describe('payment validation', () => {
   it('rechaza una tarjeta no formada por 16 dígitos', () => {
-    expect(
-      validatePayment({
-        cardNumber: '123',
-        expirationDate: '12/30',
-        cvc: '123',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(false);
+    expect(validatePayment(payment({ cardNumber: '123' })).valid).toBe(false);
   });
 
   it('rechaza un BIN desconocido', () => {
-    expect(
-      validatePayment({
-        cardNumber: '0000001234567890',
-        expirationDate: '12/30',
-        cvc: '123',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(false);
+    expect(validatePayment(payment({ cardNumber: '0000001234567890' })).valid).toBe(false);
   });
 
   it('rechaza tarjetas vencidas', () => {
-    expect(
-      validatePayment({
-        cardNumber: '4916911234567890',
-        expirationDate: '01/20',
-        cvc: '123',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(false);
+    expect(validatePayment(payment({ expirationDate: '01/20' })).valid).toBe(false);
   });
 
   it('rechaza CVC y moneda inválidos', () => {
-    expect(
-      validatePayment({
-        cardNumber: '4916911234567890',
-        expirationDate: '12/30',
-        cvc: '12',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(false);
-    expect(
-      validatePayment({
-        cardNumber: '4916911234567890',
-        expirationDate: '12/30',
-        cvc: '123',
-        currency: 'EUR',
-      }).valid,
-    ).toBe(false);
+    expect(validatePayment(payment({ cvc: '12' })).valid).toBe(false);
+    expect(validatePayment(payment({ currency: 'EUR' })).valid).toBe(false);
   });
 
   it('aprueba una tarjeta válida', () => {
-    expect(
-      validatePayment({
-        cardNumber: '4916911234567890',
-        expirationDate: '12/30',
-        cvc: '123',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(true);
+    expect(validatePayment(payment()).valid).toBe(true);
   });
 
   it('valida CVC de AMEX con cuatro dígitos', () => {
-    expect(
-      validatePayment({
-        cardNumber: '3764121234567890',
-        expirationDate: '12/30',
-        cvc: '1234',
-        currency: 'CRC',
-      }).valid,
-    ).toBe(true);
+    expect(validatePayment(payment({ cardNumber: '3764121234567890', cvc: '1234' })).valid).toBe(
+      true,
+    );
   });
 });
