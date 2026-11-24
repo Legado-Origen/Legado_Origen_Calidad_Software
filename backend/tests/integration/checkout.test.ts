@@ -27,6 +27,28 @@ function validPayment(amount: number) {
   };
 }
 
+function completeCheckout(input: {
+  buyerId: number | string;
+  itemId: number;
+  quantity: number;
+  idempotencyKey: string;
+  amount: number;
+  paymentOverrides?: Record<string, unknown>;
+}) {
+  return request(app)
+    .post('/api/checkout/complete')
+    .set('Idempotency-Key', input.idempotencyKey)
+    .send({
+      buyerId: input.buyerId,
+      items: [{ itemId: input.itemId, quantity: input.quantity }],
+      shipping: validShipping(),
+      payment: {
+        ...validPayment(input.amount),
+        ...input.paymentOverrides,
+      },
+    });
+}
+
 beforeEach(async () => {
   await resetDatabase();
   app = createApp();
@@ -77,15 +99,13 @@ describe('checkout HU-09 y HU-10', () => {
 
   it('rechaza checkout con buyerId inválido', async () => {
     const external = await createExternalSellerItem(200, 2);
-    const response = await request(app)
-      .post('/api/checkout/complete')
-      .set('Idempotency-Key', 'checkout-invalid-buyer')
-      .send({
-        buyerId: 'abc',
-        items: [{ itemId: external.itemId, quantity: 1 }],
-        shipping: validShipping(),
-        payment: validPayment(226),
-      });
+    const response = await completeCheckout({
+      buyerId: 'abc',
+      itemId: external.itemId,
+      quantity: 1,
+      idempotencyKey: 'checkout-invalid-buyer',
+      amount: 226,
+    });
     expect(response.status).toBe(400);
   });
 
@@ -121,15 +141,13 @@ describe('checkout HU-09 y HU-10', () => {
   it('rechaza stock insuficiente', async () => {
     const buyerId = await createBuyer();
     const external = await createExternalSellerItem(500, 1);
-
-    const response = await request(app)
-      .post(`/api/checkouts/${buyerId}/complete`)
-      .set('Idempotency-Key', 'checkout-stock')
-      .send({
-        items: [{ itemId: external.itemId, quantity: 2 }],
-        shipping: validShipping(),
-        payment: validPayment(1130),
-      });
+    const response = await completeCheckout({
+      buyerId,
+      itemId: external.itemId,
+      quantity: 2,
+      idempotencyKey: 'checkout-stock',
+      amount: 1130,
+    });
 
     expect(response.status).toBe(409);
   });
@@ -137,19 +155,14 @@ describe('checkout HU-09 y HU-10', () => {
   it('rechaza un pago inválido sin crear una orden', async () => {
     const buyerId = await createBuyer();
     const external = await createExternalSellerItem(500, 3);
-
-    const response = await request(app)
-      .post('/api/checkout/complete')
-      .set('Idempotency-Key', 'checkout-payment')
-      .send({
-        buyerId,
-        items: [{ itemId: external.itemId, quantity: 1 }],
-        shipping: validShipping(),
-        payment: {
-          ...validPayment(565),
-          cardNumber: '0000001234567890',
-        },
-      });
+    const response = await completeCheckout({
+      buyerId,
+      itemId: external.itemId,
+      quantity: 1,
+      idempotencyKey: 'checkout-payment',
+      amount: 565,
+      paymentOverrides: { cardNumber: '0000001234567890' },
+    });
 
     expect(response.status).toBe(400);
   });
@@ -157,16 +170,13 @@ describe('checkout HU-09 y HU-10', () => {
   it('rechaza un monto distinto al total', async () => {
     const buyerId = await createBuyer();
     const external = await createExternalSellerItem(500, 3);
-
-    const response = await request(app)
-      .post('/api/checkout/complete')
-      .set('Idempotency-Key', 'checkout-amount')
-      .send({
-        buyerId,
-        items: [{ itemId: external.itemId, quantity: 1 }],
-        shipping: validShipping(),
-        payment: validPayment(1),
-      });
+    const response = await completeCheckout({
+      buyerId,
+      itemId: external.itemId,
+      quantity: 1,
+      idempotencyKey: 'checkout-amount',
+      amount: 1,
+    });
 
     expect(response.status).toBe(400);
   });
@@ -174,16 +184,13 @@ describe('checkout HU-09 y HU-10', () => {
   it('crea una orden, descuenta stock y registra comisión', async () => {
     const buyerId = await createBuyer();
     const external = await createExternalSellerItem(500, 3);
-
-    const first = await request(app)
-      .post('/api/checkout/complete')
-      .set('Idempotency-Key', 'checkout-success')
-      .send({
-        buyerId,
-        items: [{ itemId: external.itemId, quantity: 1 }],
-        shipping: validShipping(),
-        payment: validPayment(565),
-      });
+    const first = await completeCheckout({
+      buyerId,
+      itemId: external.itemId,
+      quantity: 1,
+      idempotencyKey: 'checkout-success',
+      amount: 565,
+    });
 
     expect(first.status).toBe(201);
     expect(first.body).toMatchObject({
@@ -199,15 +206,13 @@ describe('checkout HU-09 y HU-10', () => {
       { sellerId: external.sellerId, commissionRate: 0.1, commissionAmount: 50 },
     ]);
 
-    const repeated = await request(app)
-      .post('/api/checkout/complete')
-      .set('Idempotency-Key', 'checkout-success')
-      .send({
-        buyerId,
-        items: [{ itemId: external.itemId, quantity: 1 }],
-        shipping: validShipping(),
-        payment: validPayment(565),
-      });
+    const repeated = await completeCheckout({
+      buyerId,
+      itemId: external.itemId,
+      quantity: 1,
+      idempotencyKey: 'checkout-success',
+      amount: 565,
+    });
 
     expect(repeated.status).toBe(200);
     expect(repeated.body.idempotent).toBe(true);
