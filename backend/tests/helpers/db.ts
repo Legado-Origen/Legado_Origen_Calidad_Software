@@ -3,7 +3,10 @@ import { pool } from '../../src/db/pool.js';
 export type ItemStatus = 'pending_approval' | 'available' | 'rejected' | 'sold';
 
 export async function resetDatabase() {
-  await pool.query('TRUNCATE items, users RESTART IDENTITY CASCADE');
+  await pool.query(
+    `TRUNCATE orders, order_items, payment_transactions, platform_commissions,
+     checkout_sessions, email_notifications, items, users RESTART IDENTITY CASCADE`,
+  );
 }
 
 export async function createBuyer(name = 'Comprador'): Promise<number> {
