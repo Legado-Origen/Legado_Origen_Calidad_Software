@@ -31,6 +31,11 @@ describe('checkout API', () => {
   });
 
   it('envía el pago con Idempotency-Key', async () => {
+    const getRandomValues = vi.fn((bytes: Uint8Array) => {
+      bytes.set(Array.from({ length: 16 }, (_, index) => index));
+      return bytes;
+    });
+    vi.stubGlobal('crypto', { getRandomValues });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -68,7 +73,10 @@ describe('checkout API', () => {
 
     expect(result.orderCode).toBe('LO-1234ABCD');
     const [, options] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
-    expect(options.headers['Idempotency-Key']).toBeTruthy();
+    expect(options.headers['Idempotency-Key']).toBe(
+      'checkout-000102030405060708090a0b0c0d0e0f',
+    );
+    expect(getRandomValues).toHaveBeenCalledOnce();
   });
 
   it('propaga el mensaje del backend', async () => {

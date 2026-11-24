@@ -66,6 +66,20 @@ export interface CheckoutApi {
   }): Promise<CheckoutConfirmation>;
 }
 
+function createIdempotencyKey(): string {
+  const cryptoApi = globalThis.crypto;
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+  if (typeof cryptoApi?.getRandomValues !== 'function') {
+    throw new Error('No se puede generar una clave de idempotencia segura');
+  }
+
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  const value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `checkout-${value}`;
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -102,10 +116,7 @@ export function createCheckoutApi(
     },
 
     async complete(input) {
-      const idempotencyKey =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const idempotencyKey = createIdempotencyKey();
       const response = await fetch(`${apiRoot}/checkout/complete`, {
         method: 'POST',
         headers: {
