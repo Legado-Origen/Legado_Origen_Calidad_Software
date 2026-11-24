@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { HttpError } from '../../shared/http-error.js';
 import type { CheckoutRepository } from './checkout-repository.js';
 import {
@@ -39,44 +39,15 @@ function readIdempotencyKey(req: {
 export function createCheckoutRouter(repository: CheckoutRepository): Router {
   const router = Router();
 
-  router.post('/preview', async (req, res) => {
-    if (!validateCheckoutItems(req.body?.items)) {
-      throw new HttpError(400, INVALID_CHECKOUT);
-    }
-    const currency =
-      typeof req.body?.shipping?.currency === 'string' ? req.body.shipping.currency : 'CRC';
-    if (!['CRC', 'USD'].includes(currency.toUpperCase())) {
-      throw new HttpError(400, 'Moneda inválida');
-    }
-    res.status(200).json(await repository.preview(req.body.items, currency));
-  });
-
-  router.post('/complete', async (req, res) => {
-    const body = req.body as Record<string, unknown>;
-    if (!validateCheckoutItems(body.items) || !validateShipping(body.shipping)) {
-      throw new HttpError(400, INVALID_CHECKOUT);
-    }
-    const buyerId = readBuyerId(undefined, body);
-    const idempotencyKey = readIdempotencyKey(req);
-    const payment = body.payment as PaymentData | undefined;
-    if (!payment) throw new HttpError(400, INVALID_CHECKOUT);
-    const result = await repository.complete({
-      buyerId,
-      items: body.items as Parameters<CheckoutRepository['complete']>[0]['items'],
-      shipping: body.shipping as Parameters<CheckoutRepository['complete']>[0]['shipping'],
-      payment,
-      idempotencyKey,
-    });
-    res.status(result.idempotent ? 200 : 201).json(result);
-  });
-
-  router.post('/:buyerId/preview', async (req, res) => {
-    const body = req.body as Record<string, unknown>;
+  const preview = async (body: Record<string, unknown>, res: Response) => {
     if (!validateCheckoutItems(body.items)) {
       throw new HttpError(400, INVALID_CHECKOUT);
     }
-    const shipping = body.shipping as unknown as Record<string, unknown>;
-    const currency = typeof shipping.currency === 'string' ? shipping.currency : 'CRC';
+    const shipping = body.shipping as Record<string, unknown> | undefined;
+    const currency = typeof shipping?.currency === 'string' ? shipping.currency : 'CRC';
+    if (!['CRC', 'USD'].includes(currency.toUpperCase())) {
+      throw new HttpError(400, 'Moneda inválida');
+    }
     res
       .status(200)
       .json(
@@ -85,14 +56,18 @@ export function createCheckoutRouter(repository: CheckoutRepository): Router {
           currency,
         ),
       );
-  });
+  };
 
-  router.post('/:buyerId/complete', async (req, res) => {
-    const body = req.body as Record<string, unknown>;
+  const complete = async (
+    buyerIdParam: unknown,
+    body: Record<string, unknown>,
+    req: Request,
+    res: Response,
+  ) => {
     if (!validateCheckoutItems(body.items) || !validateShipping(body.shipping)) {
       throw new HttpError(400, INVALID_CHECKOUT);
     }
-    const buyerId = readBuyerId(req.params.buyerId, body);
+    const buyerId = readBuyerId(buyerIdParam, body);
     const idempotencyKey = readIdempotencyKey(req);
     const payment = body.payment as PaymentData | undefined;
     if (!payment) throw new HttpError(400, INVALID_CHECKOUT);
@@ -104,6 +79,22 @@ export function createCheckoutRouter(repository: CheckoutRepository): Router {
       idempotencyKey,
     });
     res.status(result.idempotent ? 200 : 201).json(result);
+  };
+
+  router.post('/preview', async (req, res) => {
+    await preview(req.body as Record<string, unknown>, res);
+  });
+
+  router.post('/complete', async (req, res) => {
+    await complete(undefined, req.body as Record<string, unknown>, req, res);
+  });
+
+  router.post('/:buyerId/preview', async (req, res) => {
+    await preview(req.body as Record<string, unknown>, res);
+  });
+
+  router.post('/:buyerId/complete', async (req, res) => {
+    await complete(req.params.buyerId, req.body as Record<string, unknown>, req, res);
   });
 
   return router;
