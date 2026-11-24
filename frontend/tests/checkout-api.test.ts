@@ -73,9 +73,7 @@ describe('checkout API', () => {
 
     expect(result.orderCode).toBe('LO-1234ABCD');
     const [, options] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
-    expect(options.headers['Idempotency-Key']).toBe(
-      'checkout-000102030405060708090a0b0c0d0e0f',
-    );
+    expect(options.headers['Idempotency-Key']).toBe('checkout-000102030405060708090a0b0c0d0e0f');
     expect(getRandomValues).toHaveBeenCalledOnce();
   });
 
