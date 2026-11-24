@@ -20,6 +20,18 @@ function parseIdParam(value: string): number {
 export function createCartRouter(service: ReservationService): Router {
   const router = Router();
 
+  router.get('/:buyerId', async (req, res) => {
+    const buyerId = parseIdParam(req.params.buyerId);
+    res.status(200).json(await service.listBuyerReservations(buyerId));
+  });
+
+  router.delete('/:buyerId/items/:itemId', async (req, res) => {
+    const buyerId = parseIdParam(req.params.buyerId);
+    const itemId = parseIdParam(req.params.itemId);
+    await service.releaseReservation(buyerId, itemId);
+    res.status(204).end();
+  });
+
   router.post('/:buyerId/items', async (req, res) => {
     const buyerId = parseIdParam(req.params.buyerId);
     const itemId: unknown = req.body?.itemId;
