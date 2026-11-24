@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
     "seed": "tsx --env-file=.env src/db/seed.ts",
+    "seed:demo": "docker compose -f ../docker-compose.yml exec -T db psql -U postgres -d legado_origen < src/db/seed-demo.sql",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
