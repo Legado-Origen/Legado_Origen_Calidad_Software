@@ -5,6 +5,8 @@ import { errorHandler, notFound } from './middleware/error-handler.js';
 import { createCartRouter } from './modules/carts/cart-routes.js';
 import { createItemRepository } from './modules/carts/item-repository.js';
 import { createReservationService } from './modules/carts/reservation-service.js';
+import { createCheckoutRepository } from './modules/checkout/checkout-repository.js';
+import { createCheckoutRouter } from './modules/checkout/checkout-routes.js';
 import { type Clock, systemClock } from './shared/clock.js';
 
 interface AppDeps {
@@ -27,6 +29,8 @@ export function createApp({ clock = systemClock }: AppDeps = {}) {
     reservationMinutes: config.reservationMinutes,
   });
   app.use('/api/carts', createCartRouter(reservationService));
+  app.use('/api/checkout', createCheckoutRouter(createCheckoutRepository(pool)));
+  app.use('/api/checkouts', createCheckoutRouter(createCheckoutRepository(pool)));
 
   app.use(notFound);
   app.use(errorHandler);
