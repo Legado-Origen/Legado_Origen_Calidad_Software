@@ -1,0 +1,59 @@
+const DEFAULT_PORT = 3000;
+const DEFAULT_DB_PORT = 5432;
+const DEFAULT_RESERVATION_MINUTES = 15;
+
+export interface AppConfig {
+  port: number;
+  db: {
+    host: string | undefined;
+    port: number;
+    database: string | undefined;
+    user: string | undefined;
+    password: string | undefined;
+  };
+  reservationMinutes: number;
+  commissionRate: number;
+}
+
+export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
+  if (env.COMMISSION_RATE === undefined || env.COMMISSION_RATE.trim() === '') {
+    return 0.1;
+  }
+  const parsed = Number(env.COMMISSION_RATE);
+  if (!Number.isFinite(parsed)) {
+    throw new Error('La variable de entorno COMMISSION_RATE debe ser un número entre 0 y 1');
+  }
+  return Math.min(1, Math.max(0, parsed));
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number, name: string): number {
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`La variable de entorno ${name} debe ser un entero positivo`);
+  }
+  return parsed;
+}
+
+export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
+  return {
+    port: parsePositiveInteger(env.PORT, DEFAULT_PORT, 'PORT'),
+    db: {
+      host: env.DB_HOST,
+      port: parsePositiveInteger(env.DB_PORT, DEFAULT_DB_PORT, 'DB_PORT'),
+      database: env.DB_NAME,
+      user: env.DB_USER,
+      password: env.DB_PASSWORD,
+    },
+    reservationMinutes: parsePositiveInteger(
+      env.RESERVATION_MINUTES,
+      DEFAULT_RESERVATION_MINUTES,
+      'RESERVATION_MINUTES',
+    ),
+    commissionRate: loadCommissionRate(env),
+  };
+}
+
+export const config = loadConfig(process.env);

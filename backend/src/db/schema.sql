@@ -1,0 +1,98 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS items (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  title VARCHAR(150) NOT NULL,
+  price NUMERIC(12, 2) NOT NULL CHECK (price > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending_approval'
+    CHECK (status IN ('pending_approval', 'available', 'rejected', 'sold')),
+  reserved_by INTEGER REFERENCES users (id),
+  reserved_until TIMESTAMPTZ,
+  stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  seller_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT items_reservation_consistency
+    CHECK ((reserved_by IS NULL) = (reserved_until IS NULL))
+);
+
+ALTER TABLE items ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS seller_id INTEGER REFERENCES users (id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_code VARCHAR(30) UNIQUE NOT NULL,
+  user_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  subtotal NUMERIC(12, 2) NOT NULL,
+  tax NUMERIC(12, 2) NOT NULL,
+  total NUMERIC(12, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'CRC',
+  shipping_name VARCHAR(150),
+  shipping_email VARCHAR(150),
+  shipping_phone VARCHAR(20),
+  shipping_provincia VARCHAR(50),
+  shipping_canton VARCHAR(80),
+  shipping_distrito VARCHAR(80),
+  shipping_direccion VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+  item_id INTEGER REFERENCES items (id) ON DELETE SET NULL,
+  title VARCHAR(150) NOT NULL,
+  price NUMERIC(12, 2) NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  seller_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+  seller_subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  commission_rate NUMERIC(5, 4) NOT NULL DEFAULT 0,
+  commission_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  seller_net NUMERIC(12, 2) NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_id INTEGER REFERENCES orders (id) ON DELETE SET NULL,
+  card_bin VARCHAR(6),
+  card_last4 VARCHAR(4),
+  card_brand VARCHAR(20),
+  amount NUMERIC(12, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'CRC',
+  approved BOOLEAN NOT NULL,
+  reason VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS platform_commissions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  subtotal NUMERIC(12, 2) NOT NULL,
+  commission_rate NUMERIC(5, 4) NOT NULL,
+  commission_amount NUMERIC(12, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'CRC',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS checkout_sessions (
+  idempotency_key VARCHAR(128) PRIMARY KEY,
+  order_id INTEGER UNIQUE NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS email_notifications (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_id INTEGER REFERENCES orders (id) ON DELETE CASCADE,
+  recipient VARCHAR(150) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sent_at TIMESTAMPTZ
+);
