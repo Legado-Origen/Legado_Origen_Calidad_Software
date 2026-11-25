@@ -12,6 +12,7 @@ export interface AppConfig {
     password: string | undefined;
   };
   reservationMinutes: number;
+  commissionRate: number;
 }
 
 export function loadCommissionRate(env: NodeJS.ProcessEnv): number {
@@ -51,6 +52,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       DEFAULT_RESERVATION_MINUTES,
       'RESERVATION_MINUTES',
     ),
+    commissionRate: loadCommissionRate(env),
   };
 }
 

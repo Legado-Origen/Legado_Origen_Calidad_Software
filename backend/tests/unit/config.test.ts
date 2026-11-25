@@ -25,6 +25,7 @@ describe('loadConfig', () => {
       port: 4000,
       db: { host: 'db', port: 5433, database: 'legado_origen', user: 'app', password: 'secreto' },
       reservationMinutes: 30,
+      commissionRate: 0.1,
     });
   });
 

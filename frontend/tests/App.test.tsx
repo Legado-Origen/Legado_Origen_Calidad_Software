@@ -9,6 +9,7 @@ import {
   type Reservation,
   type ReservationApi,
 } from '../src/services/reservationApi';
+import type { CheckoutApi } from '../src/services/checkout-api';
 
 const wait = (ms = 60) => new Promise((resolve) => setTimeout(resolve, ms));
 const buyer: Buyer = { id: 4, name: 'Ana', sessionToken: 'session-ana' };
@@ -271,6 +272,27 @@ describe('frontend de reservas', () => {
     await wait();
     expect(app.lastFrame()).toContain('Inicio de sesión');
     expect(api.logout).toHaveBeenCalledWith(buyer);
+  });
+
+  it('abre el checkout desde el carrito', async () => {
+    const api = createApi({ getCart: vi.fn().mockResolvedValue(savedReservations) });
+    const checkoutApi: CheckoutApi = {
+      preview: vi.fn().mockResolvedValue({
+        step: 'summary',
+        subtotal: 560000,
+        tax: 72800,
+        total: 632800,
+        currency: 'CRC',
+        items: [],
+      }),
+      complete: vi.fn(),
+    };
+    const app = render(<App api={api} checkoutApi={checkoutApi} />);
+    await typeAndSubmit(app.stdin, 'Ana');
+    app.stdin.write('p');
+    await wait();
+
+    expect(app.lastFrame()).toContain('Checkout - 1. Resumen');
   });
 });
 
